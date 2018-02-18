@@ -141,7 +141,7 @@ server <- function(input, output){
           Volume == 2 ~ "Medium",
           Volume == 3 ~ "High"
         )) %>%
-        filter(Volume == !! Vol) %>%
+        filter(Volume ==  Vol) %>%
         select(Origin, Destination, Refugee_Total, Continent_Dest, Volume) %>%
         as_tbl_graph() %>%
         mutate(Continent = cust_countrycode(name)) %>%
