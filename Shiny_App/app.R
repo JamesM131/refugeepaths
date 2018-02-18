@@ -66,7 +66,7 @@ server <- function(input, output){
   observe({
     # Define df as a clean and reactive data frame
     df <- refugees_clean %>%
-      filter(Year == !!input$Years) %>%
+      filter(Year == input$Years) %>%
       top_n(n = input$num, Refugee_Total)
 
     # Define Destination and Origin Sizes
