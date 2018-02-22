@@ -12,4 +12,6 @@ BugReports: https://github.com/JamesM131/refugeepaths/issues
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.0.1
 Imports: 
-    magrittr
+    magrittr,
+    tidygraph,
+    ggraph

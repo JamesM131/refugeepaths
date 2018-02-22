@@ -12,10 +12,14 @@ library(countrycode)
 library(htmltools)
 library(networkD3)
 library(maps)
+library(leaflet)
+library(purrrlyr)
+library(sf)
 
 ui <- dashboardPage(
   dashboardHeader(title = "Major Refugee Pathway Exploration", titleWidth = 400),
   dashboardSidebar(sidebarMenu(
+    menuItem("Leaflet Map", tabName = "Leaflet"),
     menuItem("Comparing Different Layouts", tabName = "Year"),
     menuItem("Filtering by Volume of Refugees", tabName = "Volume_Faceting"),
     menuItem("Interactive Graphs", tabName = "Mouse"),
@@ -28,6 +32,13 @@ ui <- dashboardPage(
   ),
   dashboardBody(
     tabItems(
+      tabItem(tabName = "Leaflet",
+              shiny::fluidRow(
+                tags$style(type = "text/css", "#map {height: calc(100vh - 80px) !important;}"),
+                leafletOutput("map") #, width = "100%", height = "500px"
+                )
+              # verbatimTextOutput("text")
+              ),
       tabItem(tabName = "Year",
               fluidRow(
                 box(plotOutput("WorldPlot"), title = "Geographic Map Representation"),
@@ -62,6 +73,66 @@ ui <- dashboardPage(
 
 
 server <- function(input, output){
+
+  icon_red <- awesomeIcons(
+    icon = 'ion-person-stalker',
+    iconColor = 'black',
+    library = 'ion',
+    markerColor = "red"
+  )
+
+  icon_blue <- awesomeIcons(
+    icon = 'ion-person-stalker',
+    iconColor = 'black',
+    library = 'ion',
+    markerColor = "blue"
+  )
+
+
+  filtered <- reactive({
+    refugees_clean %>%
+      filter(Year == input$Years) %>%
+      top_n(n = input$num, Refugee_Total)
+    })
+  #
+  Origin <- reactive({
+    filtered() %>%
+    select(Year, country = Origin, Refugee_Total, lon = lon_orig, lat = lat_orig) %>%
+    st_as_sf(coords = c("lon", "lat"))
+  })
+
+  Destination <- reactive({
+    filtered() %>%
+    select(Year, country = Destination, Refugee_Total,lon = lon_dest, lat = lat_dest) %>%
+    st_as_sf(coords = c("lon", "lat"))
+  })
+
+
+  Paths <- reactive({
+    filtered() %>%
+    by_row(~st_linestring(as.matrix(rbind(c(.$lon_orig, .$lat_orig), c(.$lon_dest, .$lat_dest)))), .to = "geometry") %>%
+    pull(geometry)
+  })
+  #
+  refugees_sf <- reactive({
+    filtered() %>%
+    select(Year, Origin, Destination, Continent_Orig, Continent_Dest ,Refugee_Total) %>%
+    st_sf(st_sfc(Paths()))
+  })
+
+  output$map <- renderLeaflet({
+    leaflet() %>%
+      addTiles()
+    })
+
+  observe({output$text <- renderText(refugees_sf()$Refugee_Total)})
+  observe({
+    leafletProxy("map") %>%
+      clearMarkers() %>%
+      addAwesomeMarkers(data = Origin(), icon = icon_red) %>%
+      addAwesomeMarkers(data = Destination(), icon = icon_blue) %>%
+      addPolylines(data = refugees_sf(), popup = paste0("Refugees: ", refugees_sf()$Refugee_Total))
+  })
 
   observe({
     # Define df as a clean and reactive data frame
